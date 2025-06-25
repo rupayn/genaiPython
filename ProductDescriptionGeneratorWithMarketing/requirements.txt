@@ -1,0 +1,6 @@
+groq
+dotenv
+streamlit
+langchain
+langchain-groq
+uuid
