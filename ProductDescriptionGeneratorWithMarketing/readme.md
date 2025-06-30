@@ -97,3 +97,5 @@ pip install ipykernel
 ```
 
 ## Sample Pics:
+
+<table> <tr> <td align="center"> <img src="Public/pic1.png" alt="Sample Input Form" width="350"/><br/> <strong>🔤 Input Form</strong><br/> User provides product name, features, SEO keyword, tone, and target platform. </td> <td align="center"> <img src="Public/pic2.png" alt="Sample Output Results" width="350"/><br/> <strong>🧾 AI Output</strong><br/> Auto-generated product title, description, and social caption with copy buttons. </td> </tr> </table>
