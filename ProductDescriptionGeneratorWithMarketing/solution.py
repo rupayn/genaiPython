@@ -3,15 +3,16 @@ import os
 from dotenv import load_dotenv
 from langchain_core.prompts import PromptTemplate
 from langchain_groq import ChatGroq
+from langchain.chains import LLMChain, SequentialChain
 import uuid
 import streamlit.components.v1 as components
 import html
 
 load_dotenv()
-GROQ_APIKEY=os.getenv("GROQ_APIKEY")
+GROQ_APIKEY = os.getenv("GROQ_APIKEY")
 
 ## Setting ChatGroq with parameters for llm setup
-groqAiLLM=ChatGroq(
+groqAiLLM = ChatGroq(
     api_key=GROQ_APIKEY,
     model="deepseek-r1-distill-llama-70b",
     temperature=0,
@@ -21,122 +22,81 @@ groqAiLLM=ChatGroq(
     max_retries=2,
 ) 
 
-##
-
-## Input variable declaration for the prompt
-
-# ProductName=None
-# ProductFeature=None
-# resultChain1=None
-# resultChain2=None
-# Platform=None
-# SEOKeyword=None
-# Tone=None
-##
-
 ## Title with Streamlit
-
-
 st.title("Product Description Generator with Marketing Angle 😇")
 
 ## Custom copy button function
-
 def create_copy_button(text_to_copy):
     button_id = f"copyButton-{uuid.uuid4().hex}"
     escaped_text = html.escape(text_to_copy).replace('"', '&quot;')
     
     button_html = f"""
-    <button id="{button_id}"  style="padding: 5px; display: inline ;border-radius: 25px;" >Copy</button>
+    <button id="{button_id}" style="padding: 5px;background-color: #4CAF50;color: white; display: inline; border-radius: 25px;">Copy</button>
     <script>
         let copyButton = document.getElementById("{button_id}")
         if(copyButton){{
-            copyButton.addEventListener(`click`, function(){{
-                navigator.clipboard.writeText("{escaped_text}").then(() => {{alert("Copied to clipboard!")}}).catch(() => {{alert("Failed to copy")}})
+            copyButton.addEventListener('click', function(){{
+                navigator.clipboard.writeText("{escaped_text}").then(() => {{
+                    alert("Copied to clipboard!")
+                }}).catch(() => {{
+                    alert("Failed to copy")
+                }})
             }})
         }}
-    
     </script>
     """
     
     components.html(button_html, height=100)
 
-##
-
-
-## Function for stramlit output
-
-def StreamlitOutPut(Product_Name,Product_Feature,seo_keyword,tone,platform):
-    templateOfTiTle='''
+## Sequential Chain Setup
+def create_sequential_chain():
+    # Template for Product Title Generation
+    title_template = '''
 You are a seasoned SEO specialist with deep expertise in digital sales and marketing copywriting.
 
 Your task is to craft a compelling, creative, and attention-grabbing product title that:
 - Begins with one or two bold, exclusive, and premium-sounding words that convey a sense of quality and effectiveness to the end user.
-- Clearly highlights the product’s key feature.
-- Appeals to the target audience’s emotions, needs, or desires.
+- Clearly highlights the product's key feature.
+- Appeals to the target audience's emotions, needs, or desires.
 - Incorporates relevant keywords for optimal SEO visibility.
 - Is concise (preferably under 70 characters), yet impactful and engaging.
 
 Use the information below:
-- Product Name: {ProductName}
-- Key Feature: {ProductFeature}
+- Product Name: {product_name}
+- Key Feature: {product_feature}
 
 Respond with only the final product title as plain text—no formatting, explanations, or additional output.
 '''
 
-    FinalTiTlePrompt=PromptTemplate(
-        input_variables=["ProductName","ProductFeature"],
-        template=templateOfTiTle,
-    )
-
-    ## Chaining
-
-    chain1=FinalTiTlePrompt| groqAiLLM
-
-    resultChain1=chain1.invoke({
-        "ProductName":Product_Name,
-        "ProductFeature":Product_Feature
-    })
-    templateOfDescription='''
+    # Template for Product Description Generation
+    description_template = '''
 You are a seasoned marketing copywriter with expertise in persuasive product descriptions and conversion-focused content.
 
 Your task is to write a compelling, engaging, and benefit-driven product description based on the following product title:
-- Product Title: {ProductTitle}
+- Product Title: {product_title}
 
 The description should:
-- Expand on the product’s key benefits and what makes it stand out.
+- Expand on the product's key benefits and what makes it stand out.
 - Emphasize its value, efficiency, and appeal to the target customer's desires or problems.
 - Maintain a confident, persuasive marketing tone.
 - Be concise, ideally between 50 to 100 words.
 - Be suitable for use on an e-commerce website or digital marketplace.
 
 Respond with only the final product description as plain text—no formatting, explanations, or additional output.
-
 '''
-    FinalDescriptionPrompt=PromptTemplate(
-        input_variables=["ProductTitle"],
-        template=templateOfDescription
-    )
 
-
-    ## Chaining
-
-    chain2=FinalDescriptionPrompt| groqAiLLM
-
-    resultChain2=chain2.invoke({
-        "ProductTitle":resultChain1.content
-    })
-
-    templateOfCaption = '''
+    # Template for Caption Generation
+    caption_template = '''
 You are a professional social media copywriter skilled in crafting engaging, concise, and brand-aligned captions for various digital platforms.
 
 Your task is to write a high-quality social media caption based on the following product information:
 
-- Product Title: {ProductTitle}
-- Product Description: {ProductDescription}
+- Product Title: {product_title}
+- Product Description: {product_description}
 
 Incorporate the following elements:
-- SEO Keyword: {SEOKeyword}
-- Tone/Style: {ToneModifier} (e.g., bold, luxurious, minimalist, warm, fun, modern, inspiring)
+- SEO Keyword: {seo_keyword}
+- Tone/Style: {tone} (e.g., bold, luxurious, minimalist, warm, fun, modern, inspiring)
 
 The caption must:
 - Grab attention in the first line.
@@ -145,95 +105,163 @@ The caption must:
 - End with a light call-to-action (e.g., try it, learn more, tap to explore).
 - Fit within 30–70 words for ideal platform performance.
 
-Platform: {Platform} (e.g., Instagram, LinkedIn, Facebook)
+Platform: {platform} (e.g., Instagram, LinkedIn, Facebook)
 
 Respond with only the final caption—no formatting, hashtags, or additional commentary.
 '''
-    FinalCaptionPrompt=PromptTemplate(
-        input_variables=["ProductTitle","ProductDescription","SEOKeyword","ToneModifier","Platform"],
-        template=templateOfCaption
+
+    # Create Prompt Templates
+    title_prompt = PromptTemplate(
+        input_variables=["product_name", "product_feature"],
+        template=title_template
+    )
+    
+    description_prompt = PromptTemplate(
+        input_variables=["product_title"],
+        template=description_template
+    )
+    
+    caption_prompt = PromptTemplate(
+        input_variables=["product_title", "product_description", "seo_keyword", "tone", "platform"],
+        template=caption_template
     )
 
-    ## Chaining
-
-    chain3=FinalCaptionPrompt| groqAiLLM
-
-    resultChain3=chain3.invoke({
-        "ProductTitle":resultChain1.content,
-        "ProductDescription":resultChain2.content,
-        "SEOKeyword":seo_keyword,
-        "ToneModifier":tone,
-        "Platform":platform
-    })
-    ## Output for the product title
-    if(resultChain1 and resultChain2 and resultChain3):
-        col1,col2,col3=st.columns(3)
-        with col1:
-            st.write("Product Title:")
-            colA,colB=st.columns(2)
-            with colA:
-                st.write(resultChain1.content)
-            with colB:
-                create_copy_button(resultChain1.content)
-        with col2:
-            st.write("Product Description:")
-            colA,colB=st.columns(2)
-            with colA:
-                st.markdown(
-                        f"""
-                            <div style="
-                                border: 1px solid #ccc;
-                                padding: 10px;
-                                height: 300px;
-                                overflow-y: auto;
-                                background-color: #00000;
-                                white-space: pre-wrap;
-                                font-family: monospace;
-                            ">
-                                {resultChain2.content.strip()}
-                            </div>
-                        """,
-                    unsafe_allow_html=True
-                )
-
-            # st.write(resultChain2.content)
-            with colB:
-                create_copy_button(resultChain2.content)
-        with col3:
-            st.write("Caption:")
-            colA,colB=st.columns(2)
-            with colA:
-                st.write(resultChain3.content)
-            with colB:
-                create_copy_button(resultChain3.content)
-
+    # Create Individual LLM Chains
+    title_chain = LLMChain(
+        llm=groqAiLLM,
+        prompt=title_prompt,
+        output_key="product_title"
+    )
     
+    description_chain = LLMChain(
+        llm=groqAiLLM,
+        prompt=description_prompt,
+        output_key="product_description"
+    )
+    
+    caption_chain = LLMChain(
+        llm=groqAiLLM,
+        prompt=caption_prompt,
+        output_key="caption"
+    )
 
-   
+    # Create Sequential Chain
+    sequential_chain = SequentialChain(
+        chains=[title_chain, description_chain, caption_chain],
+        input_variables=["product_name", "product_feature", "seo_keyword", "tone", "platform"],
+        output_variables=["product_title", "product_description", "caption"],
+        verbose=True
+    )
+    
+    return sequential_chain
 
+## Function for Streamlit output using Sequential Chain
+def streamlit_output(product_name, product_feature, seo_keyword, tone, platform):
+    try:
+        # Create and run the sequential chain
+        chain = create_sequential_chain()
+        
+        # Execute the chain with all inputs
+        result = chain({
+            "product_name": product_name,
+            "product_feature": product_feature,
+            "seo_keyword": seo_keyword,
+            "tone": tone,
+            "platform": platform
+        })
+        
+        # Display results in columns
+        if result:
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.write("**Product Title:**")
+                colA, colB = st.columns([3, 1])
+                with colA:
+                    st.write(result["product_title"])
+                with colB:
+                    create_copy_button(result["product_title"])
+            
+            with col2:
+                st.write("**Product Description:**")
+                colA, colB = st.columns([3, 1])
+                with colA:
+                    st.markdown(
+                        f"""
+                        <div style="
+                            border: 1px solid #ccc;
+                            padding: 10px;
+                            height: 300px;
+                            overflow-y: auto;
+                            background-color: #171515;
+                            white-space: pre-wrap;
+                            font-family: Arial, sans-serif;
+                            border-radius: 5px;
+                        ">
+                            {result["product_description"].strip()}
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+                with colB:
+                    create_copy_button(result["product_description"])
+            
+            with col3:
+                st.write("**Caption:**")
+                colA, colB = st.columns([3, 1])
+                with colA:
+                    st.write(result["caption"])
+                with colB:
+                    create_copy_button(result["caption"])
+                    
+    except Exception as e:
+        st.error(f"An error occurred: {str(e)}")
 
 ## Form using Streamlit
-
 with st.container():
-
-    with st.form("my_form"):
+    with st.form("product_form"):
+        st.markdown("### Enter Product Information")
+        
         ProductName = st.text_input(
-            "Enter Product Name:",   
+            "Product Name:",
+            placeholder="e.g., Smart Fitness Tracker"
         )
-        ProductFeature=st.text_area("Enter Product Feature:")
-        SEOKeyword=st.text_input(
-            "Enter SEO keyword :",   
+        
+        ProductFeature = st.text_area(
+            "Product Feature:",
+            placeholder="e.g., 24/7 heart rate monitoring, waterproof design, 7-day battery life"
         )
-        Tone=st.text_input(
-            "Enter tone: "
+        
+        SEOKeyword = st.text_input(
+            "SEO Keyword:",
+            placeholder="e.g., fitness tracker, health monitor"
         )
-        Platform=st.selectbox("Select Platform:", ["Instagram", "Twitter", "FaceBook", "Email", "Youtube", "Linkedin"])
-        submitted=st.form_submit_button("Submit")
-        if (submitted):
-            if (not( ProductFeature and  ProductName and  SEOKeyword and  Tone and  Platform)):
-                st.warning("Please enter all Features.")
+        
+        Tone = st.text_input(
+            "Tone/Style:",
+            placeholder="e.g., professional, luxurious, fun, minimalist"
+        )
+        
+        Platform = st.selectbox(
+            "Select Platform:", 
+            ["Instagram", "Twitter", "Facebook", "Email", "YouTube", "LinkedIn"]
+        )
+        
+        submitted = st.form_submit_button("Generate Content", type="primary")
+        
+        if submitted:
+            if not all([ProductName, ProductFeature, SEOKeyword, Tone, Platform]):
+                st.warning("⚠️ Please fill in all fields to generate content.")
             else:
-                ## The prompting and tuning output for the product Title and description
-                ## Product Title Prompt tuning
-                StreamlitOutPut(Product_Name=ProductName,Product_Feature=ProductFeature,seo_keyword=SEOKeyword,tone=Tone,platform=Platform)
-           
+                with st.spinner("Generating content..."):
+                    streamlit_output(
+                        product_name=ProductName,
+                        product_feature=ProductFeature, 
+                        seo_keyword=SEOKeyword,
+                        tone=Tone,
+                        platform=Platform
+                    )
+
+## Footer
+st.markdown("---")
+st.markdown("*Powered by LangChain Sequential Chains and Groq AI*")

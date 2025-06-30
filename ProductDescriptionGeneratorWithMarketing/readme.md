@@ -95,3 +95,5 @@ streamlit run solution.py
 ```bash
 pip install ipykernel
 ```
+
+## Sample Pics:
